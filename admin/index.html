@@ -146,6 +146,18 @@
     .publish-bar p { font-size: .88rem; color: var(--muted); }
     .publish-bar strong { color: var(--purple-light); }
 
+    /* SAVE BUTTON FLUTUANTE */
+    .save-fab { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 200; display: none; }
+    .save-fab button { background: var(--purple); color: #fff; border: none; border-radius: 50px; padding: .85rem 1.5rem; font-size: .95rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 20px rgba(155,77,202,.5); display: flex; align-items: center; gap: .5rem; transition: opacity .2s, transform .2s; }
+    .save-fab button:hover { opacity: .9; transform: translateY(-2px); }
+    .save-fab button:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    /* PROGRESS LOG */
+    .progress-log { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: monospace; font-size: .78rem; color: var(--muted); max-height: 200px; overflow-y: auto; display: none; margin-top: 1rem; }
+    .progress-log .log-ok { color: var(--success); }
+    .progress-log .log-err { color: var(--danger); }
+    .progress-log .log-info { color: var(--purple-light); }
+
     /* DASHBOARD STATS */
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
     .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.2rem; }
@@ -306,49 +318,67 @@
 
       <!-- PUBLICAR -->
       <div class="page" id="page-publicar">
-        <h2>Publicar Alterações</h2>
-        <div style="max-width:560px;">
-          <div class="publish-bar">
-            <div>
-              <strong>Status</strong>
-              <p id="publish-status-text">Aguardando publicação</p>
-            </div>
-            <div id="publish-dot" style="width:12px;height:12px;border-radius:50%;background:var(--muted)"></div>
-          </div>
+        <h2>Publicar no GitHub</h2>
+        <div style="max-width:580px;">
 
           <div class="card" style="padding:1.5rem; margin-bottom:1.5rem;">
-            <h3>📦 Exportar ZIP para Deploy</h3>
+            <h3>🔑 Configuração do GitHub</h3>
             <p style="color:var(--muted); font-size:.85rem; margin-bottom:1.2rem;">
-              Gera um arquivo .zip atualizado com todas as suas edições, pronto para subir no Netlify (drag-and-drop).
-            </p>
-            <button class="btn btn-primary" onclick="exportZip()">⬇️ Baixar ZIP Atualizado</button>
-          </div>
-
-          <div class="card" style="padding:1.5rem; margin-bottom:1.5rem;">
-            <h3>🔗 Deploy Automático via Webhook</h3>
-            <p style="color:var(--muted); font-size:.85rem; margin-bottom:1.2rem;">
-              Cole o URL do Build Hook do Netlify para publicar com um clique.
+              Configure uma vez. O token é salvo só no seu navegador (localStorage), nunca vai para servidores.
             </p>
             <div class="form-group">
-              <label>Netlify Build Hook URL</label>
-              <input type="url" id="netlify-hook" placeholder="https://api.netlify.com/build_hooks/..." />
+              <label>Usuário GitHub</label>
+              <input type="text" id="gh-owner" placeholder="geancg" />
             </div>
-            <button class="btn btn-success" onclick="triggerDeploy()">🚀 Publicar Agora</button>
+            <div class="form-group">
+              <label>Repositório</label>
+              <input type="text" id="gh-repo" placeholder="paporeto" />
+            </div>
+            <div class="form-group">
+              <label>Personal Access Token <small style="color:var(--muted)">(precisa de permissão <strong>repo</strong>)</small></label>
+              <input type="password" id="gh-token" placeholder="ghp_..." />
+            </div>
+            <div style="display:flex; gap:.75rem;">
+              <button class="btn btn-secondary" onclick="saveGhConfig()">💾 Salvar Configuração</button>
+              <button class="btn btn-secondary btn-sm" onclick="testGhConnection()" style="opacity:.7">Testar conexão</button>
+            </div>
+            <p id="gh-config-status" style="font-size:.8rem; margin-top:.75rem; color:var(--muted);"></p>
           </div>
 
-          <div class="card" style="padding:1.5rem;">
-            <h3>💾 Salvar na Nuvem (Netlify Blobs)</h3>
+          <div class="card" style="padding:1.5rem; margin-bottom:1.5rem;">
+            <h3>🚀 Publicar Alterações</h3>
             <p style="color:var(--muted); font-size:.85rem; margin-bottom:1.2rem;">
-              Salva o conteúdo diretamente no site ao vivo sem precisar redeployar.
-              Requer que o site esteja deployado no Netlify com as funções ativas.
+              Envia o <code>content.json</code> e todas as imagens novas direto para o GitHub. O site atualiza em ~1 minuto automaticamente.
             </p>
-            <button class="btn btn-secondary" onclick="saveToCloud()">☁️ Salvar na Nuvem</button>
+            <div id="publish-progress-log" class="progress-log"></div>
+            <div style="display:flex; gap:.75rem; margin-top:1rem; flex-wrap:wrap;">
+              <button class="btn btn-primary" id="btn-publish-gh" onclick="publishToGitHub()">🚀 Publicar Agora</button>
+              <button class="btn btn-secondary" onclick="exportZip()">⬇️ Baixar ZIP</button>
+            </div>
+          </div>
+
+          <div class="card" style="padding:1.5rem; background:var(--surface2);">
+            <h3 style="font-size:.85rem; color:var(--muted);">Como gerar o token</h3>
+            <ol style="color:var(--muted); font-size:.8rem; line-height:2; padding-left:1.2rem;">
+              <li>Acesse <strong>github.com → Settings → Developer settings → Personal access tokens → Tokens (classic)</strong></li>
+              <li>Clique <strong>Generate new token (classic)</strong></li>
+              <li>Marque apenas o escopo <strong>repo</strong></li>
+              <li>Cole o token gerado no campo acima</li>
+            </ol>
           </div>
         </div>
       </div>
 
     </main>
   </div>
+</div>
+
+<!-- SAVE FAB -->
+<div class="save-fab" id="save-fab">
+  <button id="save-fab-btn" onclick="publishToGitHub()">
+    <span id="save-fab-icon">🚀</span>
+    <span id="save-fab-label">Publicar alterações</span>
+  </button>
 </div>
 
 <!-- MODAL ARTISTA -->
@@ -554,6 +584,8 @@ async function loadContent() {
     document.getElementById('app').style.display = 'block';
     renderAll();
     setStatus('Dados carregados', 'saved');
+    // Pre-fill GitHub config if saved
+    setTimeout(() => loadGhConfig(), 100);
   } catch (e) {
     console.error('loadContent error:', e);
     document.getElementById('login-error').textContent = 'Erro ao carregar o conteúdo: ' + e.message;
@@ -987,44 +1019,149 @@ function saveSiteSettings() {
   showToast('Configurações salvas!', 'success');
 }
 
-// ====== PUBLISH ======
-async function saveToCloud() {
-  setStatus('Salvando na nuvem...');
+// ====== GITHUB PUBLISH ======
+function saveGhConfig() {
+  const cfg = {
+    owner: document.getElementById('gh-owner').value.trim(),
+    repo: document.getElementById('gh-repo').value.trim(),
+    token: document.getElementById('gh-token').value.trim(),
+  };
+  if (!cfg.owner || !cfg.repo || !cfg.token) { showToast('Preencha todos os campos', 'error'); return; }
+  localStorage.setItem('gh_config', JSON.stringify(cfg));
+  document.getElementById('gh-config-status').textContent = '✅ Configuração salva no navegador';
+  document.getElementById('gh-config-status').style.color = 'var(--success)';
+  showToast('Configuração salva!', 'success');
+}
+
+function loadGhConfig() {
   try {
-    const res = await fetch('/.netlify/functions/save-content', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-      body: JSON.stringify(state),
+    const cfg = JSON.parse(localStorage.getItem('gh_config') || '{}');
+    if (cfg.owner) document.getElementById('gh-owner').value = cfg.owner;
+    if (cfg.repo) document.getElementById('gh-repo').value = cfg.repo;
+    if (cfg.token) document.getElementById('gh-token').value = cfg.token;
+    return cfg;
+  } catch { return {}; }
+}
+
+async function testGhConnection() {
+  const cfg = loadGhConfig();
+  if (!cfg.token) { showToast('Configure o token primeiro', 'error'); return; }
+  const statusEl = document.getElementById('gh-config-status');
+  statusEl.textContent = 'Testando...';
+  try {
+    const res = await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}`, {
+      headers: { Authorization: `Bearer ${cfg.token}`, Accept: 'application/vnd.github+json' }
     });
     if (res.ok) {
-      pendingChanges = false;
-      renderDashboard();
-      setStatus('Salvo na nuvem', 'saved');
-      showToast('Conteúdo salvo na nuvem!', 'success');
+      statusEl.textContent = '✅ Conexão OK! Repositório encontrado.';
+      statusEl.style.color = 'var(--success)';
     } else {
-      const err = await res.json().catch(() => ({}));
-      showToast('Erro: ' + (err.error || res.status), 'error');
-      setStatus('Erro ao salvar');
+      statusEl.textContent = '❌ Erro ' + res.status + ': verifique o token e o repositório.';
+      statusEl.style.color = 'var(--danger)';
     }
   } catch (e) {
-    showToast('Sem conexão com o servidor. Use Export ZIP.', 'error');
-    setStatus('Offline');
+    statusEl.textContent = '❌ Sem conexão com o GitHub.';
+    statusEl.style.color = 'var(--danger)';
   }
 }
 
-async function triggerDeploy() {
-  const hook = document.getElementById('netlify-hook').value.trim();
-  if (!hook) { showToast('Cole o URL do Build Hook primeiro', 'error'); return; }
-  await saveToCloud();
+function logPublish(msg, type) {
+  const log = document.getElementById('publish-progress-log');
+  if (!log) return;
+  log.style.display = 'block';
+  const line = document.createElement('div');
+  line.className = type ? 'log-' + type : '';
+  line.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function ghGetFileSha(cfg, path) {
   try {
-    await fetch(hook, { method: 'POST' });
-    showToast('Deploy iniciado no Netlify! 🚀', 'success');
-    document.getElementById('publish-status-text').textContent = 'Deploy em andamento...';
-    document.getElementById('publish-dot').style.background = 'var(--purple)';
+    const res = await fetch(
+      `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${path}`,
+      { headers: { Authorization: `Bearer ${cfg.token}`, Accept: 'application/vnd.github+json' } }
+    );
+    if (res.ok) { const d = await res.json(); return d.sha; }
+  } catch {}
+  return null;
+}
+
+async function ghPutFile(cfg, path, base64Content, message, sha) {
+  const body = { message, content: base64Content };
+  if (sha) body.sha = sha;
+  const res = await fetch(
+    `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${path}`,
+    {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${cfg.token}`,
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || res.status);
+  }
+  return res.json();
+}
+
+async function publishToGitHub() {
+  const cfg = loadGhConfig();
+  if (!cfg.token || !cfg.owner || !cfg.repo) {
+    showToast('Configure o GitHub primeiro em Publicar', 'error');
+    goPage('publicar');
+    return;
+  }
+  const btn = document.getElementById('btn-publish-gh');
+  const fab = document.getElementById('save-fab-btn');
+  const logEl = document.getElementById('publish-progress-log');
+  if (logEl) { logEl.innerHTML = ''; logEl.style.display = 'block'; }
+  if (btn) btn.disabled = true;
+  if (fab) { fab.disabled = true; document.getElementById('save-fab-label').textContent = 'Publicando...'; document.getElementById('save-fab-icon').textContent = '⏳'; }
+  setStatus('Publicando...', '');
+  try {
+    logPublish('Buscando versão atual do content.json...', 'info');
+    const contentJson = JSON.stringify(state, null, 2);
+    const contentB64 = btoa(unescape(encodeURIComponent(contentJson)));
+    const sha = await ghGetFileSha(cfg, 'content.json');
+    logPublish('Enviando content.json...', 'info');
+    await ghPutFile(cfg, 'content.json', contentB64, 'Admin: atualiza content.json', sha);
+    logPublish('✅ content.json enviado!', 'ok');
+    const imageEntries = Object.entries(uploadedImages);
+    if (imageEntries.length > 0) {
+      logPublish(`Enviando ${imageEntries.length} imagem(ns) nova(s)...`, 'info');
+      for (const [filename, dataUrl] of imageEntries) {
+        try {
+          const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+          const imgPath = `assets/uploads/${filename}`;
+          const imgSha = await ghGetFileSha(cfg, imgPath);
+          await ghPutFile(cfg, imgPath, base64, `Admin: adiciona ${filename}`, imgSha);
+          logPublish('✅ ' + filename, 'ok');
+        } catch (e) { logPublish('⚠️ Erro em ' + filename + ': ' + e.message, 'err'); }
+      }
+      uploadedImages = {};
+    }
+    pendingChanges = false;
+    renderDashboard();
+    setStatus('Publicado ✓', 'saved');
+    if (document.getElementById('save-fab')) document.getElementById('save-fab').style.display = 'none';
+    showToast('✅ Publicado! Site atualiza em ~1 minuto.', 'success');
+    logPublish('🚀 Pronto! GitHub Pages atualiza automaticamente.', 'ok');
   } catch (e) {
-    showToast('Erro ao acionar deploy', 'error');
+    logPublish('❌ Erro: ' + e.message, 'err');
+    showToast('Erro: ' + e.message, 'error');
+    setStatus('Erro ao publicar');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (fab) { fab.disabled = false; document.getElementById('save-fab-label').textContent = 'Publicar alterações'; document.getElementById('save-fab-icon').textContent = '🚀'; }
   }
 }
+
+async function saveToCloud() { await publishToGitHub(); }
 
 async function exportZip() {
   showToast('Gerando ZIP...', '');
@@ -1171,6 +1308,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 function markChanged() {
   pendingChanges = true;
   renderDashboard();
+  document.getElementById('save-fab').style.display = 'block';
 }
 
 function setStatus(msg, type) {
