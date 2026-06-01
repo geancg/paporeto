@@ -1,0 +1,51 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fix asset paths for GitHub Pages subdirectory
+        run: |
+          python3 -c "
+          import re, sys
+          with open('assets/index-D0pt1Yki.js', 'r', encoding='utf-8') as f:
+              data = f.read()
+          # Replace absolute /assets/ paths with /paporeto/assets/
+          data = data.replace('\"/assets/', '\"/paporeto/assets/')
+          with open('assets/index-D0pt1Yki.js', 'w', encoding='utf-8') as f:
+              f.write(data)
+          count = data.count('\"/paporeto/assets/')
+          print(f'Patched {count} asset path references')
+          "
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
