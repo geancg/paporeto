@@ -9,10 +9,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=Inter:wght@300..700&family=JetBrains+Mono:wght@400..700&display=swap" rel="stylesheet" />
     <script>
+// GitHub Pages SPA: restore path from ?p= param
 (function(){
-  var xhr=new XMLHttpRequest();
-  xhr.open('GET','/.netlify/functions/get-content',false);
-  try{xhr.send();if(xhr.status===200)window.__KIMI_DATA__=JSON.parse(xhr.responseText);}catch(e){}
+  var q=window.location.search;
+  if(q&&q.indexOf('p=/')>-1){
+    var r=q.slice(1).split('&').reduce(function(o,v){var a=v.split('=');o[a[0]]=a[1];return o},{});
+    if(r.p){window.history.replaceState(null,null,r.p.replace(/~and~/g,'&')+(r.q?'?'+r.q.replace(/~and~/g,'&'):''));}
+  }
 })();
 </script>
   <script type="module" crossorigin src="./assets/index-D0pt1Yki.js"></script>
