@@ -26,17 +26,27 @@ jobs:
 
       - name: Fix asset paths for GitHub Pages subdirectory
         run: |
-          python3 -c "
-          import re, sys
+          python3 << 'PYEOF'
+          import hashlib, re
+
+          # Patch JS bundle: /assets/ -> /paporeto/assets/
           with open('assets/index-D0pt1Yki.js', 'r', encoding='utf-8') as f:
-              data = f.read()
-          # Replace absolute /assets/ paths with /paporeto/assets/
-          data = data.replace('\"/assets/', '\"/paporeto/assets/')
+              js = f.read()
+          js = js.replace('"/assets/', '"/paporeto/assets/')
           with open('assets/index-D0pt1Yki.js', 'w', encoding='utf-8') as f:
-              f.write(data)
-          count = data.count('\"/paporeto/assets/')
-          print(f'Patched {count} asset path references')
-          "
+              f.write(js)
+          print(f'Patched {js.count("/paporeto/assets/")} asset path references')
+
+          # Add hash to script/css refs in index.html to bust browser cache
+          h = hashlib.md5(js.encode()).hexdigest()[:8]
+          with open('index.html', 'r', encoding='utf-8') as f:
+              html = f.read()
+          html = re.sub(r'(index-D0pt1Yki\.js)(\?[^"]*)?', rf'\1?v={h}', html)
+          html = re.sub(r'(index-WF_ZS38y\.css)(\?[^"]*)?', rf'\1?v={h}', html)
+          with open('index.html', 'w', encoding='utf-8') as f:
+              f.write(html)
+          print(f'Cache-busted index.html with hash {h}')
+          PYEOF
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
