@@ -27,10 +27,10 @@ jobs:
       - name: Build — patch bundle and inject live content
         run: |
           python3 << 'PYEOF'
-          import hashlib, re, json
+          import hashlib, re, json, os, base64
+          re2 = re
 
           # ── 0. Extract any base64 images still in content.json ───────────
-          import base64, re as re2
           os.makedirs('assets/uploads', exist_ok=True)
 
           def extract_b64(b64_str, hint):
