@@ -29,11 +29,52 @@ jobs:
           python3 << 'PYEOF'
           import hashlib, re, json
 
+          # ── 0. Extract any base64 images still in content.json ───────────
+          import base64, re as re2
+          os.makedirs('assets/uploads', exist_ok=True)
+
+          def extract_b64(b64_str, hint):
+              m = re2.match(r'data:image/(\w+);base64,(.+)', b64_str, re2.DOTALL)
+              if not m: return b64_str
+              ext = m.group(1).replace('jpeg','jpg')
+              data_bytes = base64.b64decode(m.group(2))
+              fname = re2.sub(r'[^a-zA-Z0-9_-]', '_', hint) + f'.{ext}'
+              fpath = f'assets/uploads/{fname}'
+              with open(fpath, 'wb') as fh: fh.write(data_bytes)
+              print(f'  Extracted {fname} ({len(data_bytes)//1024}KB)')
+              return f'/assets/uploads/{fname}'
+
+          with open('content.json', 'r', encoding='utf-8') as f:
+              raw = json.load(f)
+
+          changed = False
+          for a in raw.get('artists', []):
+              if a.get('heroImage','').startswith('data:'):
+                  a['heroImage'] = extract_b64(a['heroImage'], a.get('slug','artist') + '-hero')
+                  changed = True
+              for o in a.get('obras', []):
+                  if o.get('imagem','').startswith('data:'):
+                      o['imagem'] = extract_b64(o['imagem'], a.get('slug','') + '-obra-' + o.get('id',''))
+                      changed = True
+          for r in raw.get('registro', []):
+              if r.get('url','').startswith('data:'):
+                  r['url'] = extract_b64(r['url'], 'registro-' + r.get('id',''))
+                  changed = True
+
+          if changed:
+              with open('content.json', 'w', encoding='utf-8') as f:
+                  json.dump(raw, f, ensure_ascii=False)
+              print(f'  content.json cleaned of base64 images')
+
           # ── 1. Load content.json ──────────────────────────────────────────
           with open('content.json', 'r', encoding='utf-8') as f:
               content = json.load(f)
 
-          # Convert artist/registro data back to compact JS-like JSON for injection
+          # Fix /assets/ paths in content data to include /paporeto/ prefix
+          content_str = json.dumps(content, ensure_ascii=False)
+          content_str = content_str.replace('"/assets/', '"/paporeto/assets/')
+          content = json.loads(content_str)
+
           artists_json  = json.dumps(content.get('artists',  []), ensure_ascii=False)
           registro_json = json.dumps(content.get('registro', []), ensure_ascii=False)
           site_json     = json.dumps(content.get('site',     {}), ensure_ascii=False)
