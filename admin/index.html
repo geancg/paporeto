@@ -114,6 +114,27 @@
     .media-item .media-info p { font-size: .8rem; color: var(--muted); }
     .media-item .media-remove { position: absolute; top: .5rem; right: .5rem; background: rgba(0,0,0,.7); border: none; color: var(--danger); border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: .9rem; display: flex; align-items: center; justify-content: center; }
 
+    /* UPLOAD ZONE — REGISTRO */
+    .upload-drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 2rem; text-align: center; cursor: pointer; transition: border-color .2s, background .2s; position: relative; margin-bottom: 1.5rem; }
+    .upload-drop-zone:hover, .upload-drop-zone.drag-over { border-color: var(--purple); background: rgba(155,77,202,.07); }
+    .upload-drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .upload-drop-zone .drop-icon { font-size: 2rem; margin-bottom: .5rem; }
+    .upload-drop-zone p { color: var(--muted); font-size: .9rem; }
+    .upload-drop-zone small { color: var(--border); font-size: .75rem; }
+
+    /* STAGING AREA */
+    .staging-area { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1.5rem; }
+    .staging-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .staging-header h3 { margin: 0; font-size: .95rem; }
+    .staging-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: .75rem; }
+    .staging-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; position: relative; }
+    .staging-card img { width: 100%; height: 110px; object-fit: cover; display: block; }
+    .staging-card .staging-body { padding: .5rem; }
+    .staging-card .staging-body input[type=text] { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: .3rem .5rem; border-radius: 5px; font-size: .75rem; margin-bottom: .4rem; outline: none; }
+    .staging-card .staging-body input:focus { border-color: var(--purple); }
+    .staging-card .staging-body select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--muted); padding: .3rem .5rem; border-radius: 5px; font-size: .72rem; outline: none; }
+    .staging-card .staging-remove { position: absolute; top: .3rem; right: .3rem; background: rgba(0,0,0,.75); border: none; color: #fff; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; font-size: .75rem; display: flex; align-items: center; justify-content: center; }
+
     /* TOAST */
     .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 1rem 1.5rem; border-radius: var(--radius); font-size: .9rem; z-index: 999; transform: translateY(100px); opacity: 0; transition: all .3s; }
     .toast.show { transform: none; opacity: 1; }
@@ -222,11 +243,36 @@
 
       <!-- REGISTRO -->
       <div class="page" id="page-registro">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem;">
           <h2 style="margin:0">Registro da Exposição</h2>
-          <button class="btn btn-primary" onclick="openMediaModal()">+ Adicionar Mídia</button>
+          <div style="display:flex;gap:.5rem;">
+            <button class="btn btn-secondary" onclick="openMediaModal('video')">🎬 Vídeo</button>
+            <button class="btn btn-secondary" onclick="openMediaModal('text')">📝 Texto</button>
+          </div>
         </div>
-        <p style="color:var(--muted); font-size:.85rem; margin-bottom:1.5rem;">Fotos, vídeos e textos que documentam a exposição.</p>
+
+        <!-- DROP ZONE -->
+        <div class="upload-drop-zone" id="registro-drop-zone">
+          <input type="file" accept="image/*" multiple id="registro-file-input" onchange="onRegistroFiles(this.files)" />
+          <div class="drop-icon">📷</div>
+          <p>Arraste fotos aqui ou clique para selecionar</p>
+          <small>JPG, PNG, WEBP · várias de uma vez</small>
+        </div>
+
+        <!-- STAGING AREA (aparece após selecionar fotos) -->
+        <div class="staging-area" id="staging-area" style="display:none;">
+          <div class="staging-header">
+            <h3>📌 Fotos selecionadas — edite os títulos e tags antes de adicionar</h3>
+            <div style="display:flex;gap:.5rem;align-items:center;">
+              <span id="staging-count" style="color:var(--muted);font-size:.85rem;"></span>
+              <button class="btn btn-secondary btn-sm" onclick="clearStaging()">Cancelar</button>
+              <button class="btn btn-primary btn-sm" onclick="confirmStaging()">✅ Adicionar todas</button>
+            </div>
+          </div>
+          <div class="staging-grid" id="staging-grid"></div>
+        </div>
+
+        <!-- MÍDIA PUBLICADA -->
         <div class="media-grid" id="media-grid"></div>
       </div>
 
@@ -415,29 +461,12 @@
 <div class="modal-overlay" id="media-modal">
   <div class="modal">
     <div class="modal-header">
-      <h3>Adicionar Mídia ao Registro</h3>
+      <h3 id="media-modal-title">Adicionar Vídeo</h3>
       <button class="modal-close" onclick="closeModal('media-modal')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-group">
-        <label>Tipo de Mídia</label>
-        <select id="media-type" onchange="toggleMediaType()">
-          <option value="photo">📷 Foto</option>
-          <option value="video">🎬 Vídeo (YouTube/Vimeo)</option>
-          <option value="text">📝 Bloco de Texto</option>
-        </select>
-      </div>
-      <div id="media-photo-fields">
-        <div class="form-group">
-          <label>Fotos (selecione uma ou várias)</label>
-          <div class="img-upload-zone" id="multi-upload-zone">
-            <input type="file" accept="image/*" multiple id="media-multi-files" onchange="previewMultiImages(this)" />
-            <p>Clique ou arraste imagens</p>
-            <div id="multi-preview-grid" style="display:none; display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.75rem; justify-content:center;"></div>
-          </div>
-        </div>
-      </div>
-      <div id="media-video-fields" style="display:none;">
+      <input type="hidden" id="media-type" />
+      <div id="media-video-fields">
         <div class="form-group">
           <label>URL do Vídeo (YouTube ou Vimeo)</label>
           <input type="url" id="media-video-url" placeholder="https://www.youtube.com/watch?v=..." />
@@ -455,10 +484,10 @@
       </div>
       <div class="form-group">
         <label>Título</label>
-        <input type="text" id="media-title" placeholder="Título da mídia" />
+        <input type="text" id="media-title" placeholder="Título" />
       </div>
       <div class="form-group">
-        <label>Fotógrafo / Autor</label>
+        <label>Autor</label>
         <input type="text" id="media-photographer" placeholder="Nome do autor" value="Equipe Papo Reto" />
       </div>
       <div class="form-group">
@@ -787,96 +816,138 @@ function cancelObraForm() {
 }
 
 // ====== MEDIA CRUD ======
-let _pendingPhotos = []; // { filename, dataUrl }
+let _stagingPhotos = []; // { filename, dataUrl, title, category }
 
-function openMediaModal() {
-  ['media-title','media-video-url','media-duration','media-text-content'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('media-photographer').value = 'Equipe Papo Reto';
-  document.getElementById('media-type').value = 'photo';
-  document.getElementById('media-category').value = 'exposicao';
-  _pendingPhotos = [];
-  document.getElementById('multi-preview-grid').innerHTML = '';
-  document.getElementById('multi-preview-grid').style.display = 'none';
-  document.getElementById('media-multi-files').value = '';
-  toggleMediaType();
-  document.getElementById('media-modal').classList.add('open');
-}
+// Drag-and-drop on drop zone
+(function setupDropZone() {
+  document.addEventListener('DOMContentLoaded', () => {
+    const zone = document.getElementById('registro-drop-zone');
+    if (!zone) return;
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      onRegistroFiles(e.dataTransfer.files);
+    });
+  });
+})();
 
-function toggleMediaType() {
-  const type = document.getElementById('media-type').value;
-  document.getElementById('media-photo-fields').style.display = type === 'photo' ? '' : 'none';
-  document.getElementById('media-video-fields').style.display = type === 'video' ? '' : 'none';
-  document.getElementById('media-text-fields').style.display = type === 'text' ? '' : 'none';
-}
+function onRegistroFiles(files) {
+  const arr = Array.from(files).filter(f => f.type.startsWith('image/'));
+  if (!arr.length) return;
+  _stagingPhotos = [];
+  document.getElementById('staging-grid').innerHTML = '';
 
-function previewMultiImages(input) {
-  const files = Array.from(input.files);
-  if (!files.length) return;
-  _pendingPhotos = [];
-  const grid = document.getElementById('multi-preview-grid');
-  grid.innerHTML = '';
-  grid.style.display = 'flex';
-
-  files.forEach(file => {
+  let loaded = 0;
+  arr.forEach((file, i) => {
     const reader = new FileReader();
     reader.onload = (e) => {
-      _pendingPhotos.push({ filename: file.name, dataUrl: e.target.result });
-      const img = document.createElement('img');
-      img.src = e.target.result;
-      img.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border)';
-      grid.appendChild(img);
+      const title = file.name.replace(/\.[^/.]+$/, '').replace(/[_\-]/g, ' ');
+      _stagingPhotos.push({ filename: file.name, dataUrl: e.target.result, title, category: 'exposicao' });
+      renderStagingCard(_stagingPhotos.length - 1);
+      loaded++;
+      if (loaded === arr.length) {
+        document.getElementById('staging-count').textContent = `${loaded} foto${loaded > 1 ? 's' : ''}`;
+        document.getElementById('staging-area').style.display = 'block';
+        document.getElementById('staging-area').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     };
     reader.readAsDataURL(file);
   });
+  // Reset input so same files can be re-selected
+  document.getElementById('registro-file-input').value = '';
+}
+
+function renderStagingCard(i) {
+  const p = _stagingPhotos[i];
+  const grid = document.getElementById('staging-grid');
+  const card = document.createElement('div');
+  card.className = 'staging-card';
+  card.id = 'staging-card-' + i;
+  card.innerHTML = `
+    <img src="${p.dataUrl}" alt="${p.title}" />
+    <button class="staging-remove" onclick="removeStaging(${i})">✕</button>
+    <div class="staging-body">
+      <input type="text" value="${p.title}" placeholder="Título" oninput="_stagingPhotos[${i}].title=this.value" />
+      <select onchange="_stagingPhotos[${i}].category=this.value">
+        <option value="exposicao" ${p.category==='exposicao'?'selected':''}>📍 Exposição</option>
+        <option value="processo" ${p.category==='processo'?'selected':''}>🔧 Processo</option>
+        <option value="geral" ${p.category==='geral'?'selected':''}>🌐 Geral</option>
+      </select>
+    </div>
+  `;
+  grid.appendChild(card);
+}
+
+function removeStaging(i) {
+  _stagingPhotos.splice(i, 1);
+  // Re-render all staging cards
+  const grid = document.getElementById('staging-grid');
+  grid.innerHTML = '';
+  _stagingPhotos.forEach((_, idx) => renderStagingCard(idx));
+  document.getElementById('staging-count').textContent = `${_stagingPhotos.length} foto${_stagingPhotos.length !== 1 ? 's' : ''}`;
+  if (!_stagingPhotos.length) clearStaging();
+}
+
+function clearStaging() {
+  _stagingPhotos = [];
+  document.getElementById('staging-grid').innerHTML = '';
+  document.getElementById('staging-area').style.display = 'none';
+}
+
+function confirmStaging() {
+  if (!_stagingPhotos.length) return;
+  const year = new Date().getFullYear().toString();
+  _stagingPhotos.forEach((p, i) => {
+    const filename = Date.now() + i + '_' + p.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    uploadedImages[filename] = p.dataUrl;
+    uploadToCloud(filename, p.dataUrl, 'image/jpeg');
+    state.registro.push({
+      id: String(Date.now() + i),
+      type: 'photo',
+      url: p.dataUrl,
+      title: p.title,
+      photographer: 'Equipe Papo Reto',
+      category: p.category,
+      timestamp: year,
+    });
+  });
+  const count = _stagingPhotos.length;
+  clearStaging();
+  renderMedia();
+  renderDashboard();
+  markChanged();
+  showToast(`${count} foto${count > 1 ? 's adicionadas' : ' adicionada'} ao registro!`, 'success');
+}
+
+// Modal só para vídeo e texto
+function openMediaModal(type) {
+  document.getElementById('media-type').value = type;
+  document.getElementById('media-modal-title').textContent = type === 'video' ? '🎬 Adicionar Vídeo' : '📝 Adicionar Texto';
+  document.getElementById('media-video-fields').style.display = type === 'video' ? '' : 'none';
+  document.getElementById('media-text-fields').style.display = type === 'text' ? '' : 'none';
+  ['media-title','media-video-url','media-duration','media-text-content'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('media-photographer').value = 'Equipe Papo Reto';
+  document.getElementById('media-category').value = 'exposicao';
+  document.getElementById('media-modal').classList.add('open');
 }
 
 function saveMedia() {
   const type = document.getElementById('media-type').value;
-  const photographer = document.getElementById('media-photographer').value;
-  const category = document.getElementById('media-category').value;
-  const year = new Date().getFullYear().toString();
-
-  if (type === 'photo') {
-    if (!_pendingPhotos.length) { showToast('Selecione ao menos uma foto', 'error'); return; }
-    _pendingPhotos.forEach((p, i) => {
-      // Use filename without extension as title
-      const title = p.filename.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
-      const filename = Date.now() + i + '_' + p.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-      uploadedImages[filename] = p.dataUrl;
-      uploadToCloud(filename, p.dataUrl, 'image/jpeg');
-      state.registro.push({
-        id: String(Date.now() + i),
-        type: 'photo',
-        url: p.dataUrl,
-        title,
-        photographer,
-        category,
-        timestamp: year,
-      });
-    });
-    closeModal('media-modal');
-    renderMedia();
-    renderDashboard();
-    markChanged();
-    showToast(`${_pendingPhotos.length} foto${_pendingPhotos.length > 1 ? 's adicionadas' : ' adicionada'}!`, 'success');
-    return;
-  }
-
-  let url = '';
-  if (type === 'video') url = document.getElementById('media-video-url').value;
+  const url = type === 'video' ? document.getElementById('media-video-url').value : '';
+  if (type === 'video' && !url) { showToast('Informe a URL do vídeo', 'error'); return; }
   const item = {
     id: String(Date.now()),
     type,
     url,
     title: document.getElementById('media-title').value,
-    photographer,
-    category,
-    timestamp: year,
+    photographer: document.getElementById('media-photographer').value,
+    category: document.getElementById('media-category').value,
+    timestamp: new Date().getFullYear().toString(),
   };
   if (type === 'video') item.duration = document.getElementById('media-duration').value;
   if (type === 'text') item.content = document.getElementById('media-text-content').value;
-  if (type === 'video' && !url) { showToast('Informe a URL do vídeo', 'error'); return; }
-
   state.registro.push(item);
   closeModal('media-modal');
   renderMedia();
