@@ -429,12 +429,11 @@
       </div>
       <div id="media-photo-fields">
         <div class="form-group">
-          <label>Foto</label>
-          <div class="img-upload-zone">
-            <input type="file" accept="image/*" onchange="previewImage(this, 'media-img-preview', 'media-img-url')" />
-            <p>Clique ou arraste uma imagem</p>
-            <img class="img-preview" id="media-img-preview" style="display:none" />
-            <input type="hidden" id="media-img-url" />
+          <label>Fotos (selecione uma ou várias)</label>
+          <div class="img-upload-zone" id="multi-upload-zone">
+            <input type="file" accept="image/*" multiple id="media-multi-files" onchange="previewMultiImages(this)" />
+            <p>Clique ou arraste imagens</p>
+            <div id="multi-preview-grid" style="display:none; display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.75rem; justify-content:center;"></div>
           </div>
         </div>
       </div>
@@ -787,13 +786,17 @@ function cancelObraForm() {
 }
 
 // ====== MEDIA CRUD ======
+let _pendingPhotos = []; // { filename, dataUrl }
+
 function openMediaModal() {
   ['media-title','media-video-url','media-duration','media-text-content'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('media-photographer').value = 'Equipe Papo Reto';
-  document.getElementById('media-img-url').value = '';
-  document.getElementById('media-img-preview').style.display = 'none';
   document.getElementById('media-type').value = 'photo';
   document.getElementById('media-category').value = 'exposicao';
+  _pendingPhotos = [];
+  document.getElementById('multi-preview-grid').innerHTML = '';
+  document.getElementById('multi-preview-grid').style.display = 'none';
+  document.getElementById('media-multi-files').value = '';
   toggleMediaType();
   document.getElementById('media-modal').classList.add('open');
 }
@@ -805,26 +808,72 @@ function toggleMediaType() {
   document.getElementById('media-text-fields').style.display = type === 'text' ? '' : 'none';
 }
 
+function previewMultiImages(input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  _pendingPhotos = [];
+  const grid = document.getElementById('multi-preview-grid');
+  grid.innerHTML = '';
+  grid.style.display = 'flex';
+
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      _pendingPhotos.push({ filename: file.name, dataUrl: e.target.result });
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border)';
+      grid.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function saveMedia() {
   const type = document.getElementById('media-type').value;
-  let url = '';
-  if (type === 'photo') url = document.getElementById('media-img-url').value;
-  else if (type === 'video') url = document.getElementById('media-video-url').value;
-  else url = '';
+  const photographer = document.getElementById('media-photographer').value;
+  const category = document.getElementById('media-category').value;
+  const year = new Date().getFullYear().toString();
 
+  if (type === 'photo') {
+    if (!_pendingPhotos.length) { showToast('Selecione ao menos uma foto', 'error'); return; }
+    _pendingPhotos.forEach((p, i) => {
+      // Use filename without extension as title
+      const title = p.filename.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+      const filename = Date.now() + i + '_' + p.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+      uploadedImages[filename] = p.dataUrl;
+      uploadToCloud(filename, p.dataUrl, 'image/jpeg');
+      state.registro.push({
+        id: String(Date.now() + i),
+        type: 'photo',
+        url: p.dataUrl,
+        title,
+        photographer,
+        category,
+        timestamp: year,
+      });
+    });
+    closeModal('media-modal');
+    renderMedia();
+    renderDashboard();
+    markChanged();
+    showToast(`${_pendingPhotos.length} foto${_pendingPhotos.length > 1 ? 's adicionadas' : ' adicionada'}!`, 'success');
+    return;
+  }
+
+  let url = '';
+  if (type === 'video') url = document.getElementById('media-video-url').value;
   const item = {
     id: String(Date.now()),
     type,
     url,
     title: document.getElementById('media-title').value,
-    photographer: document.getElementById('media-photographer').value,
-    category: document.getElementById('media-category').value,
-    timestamp: new Date().getFullYear().toString(),
+    photographer,
+    category,
+    timestamp: year,
   };
   if (type === 'video') item.duration = document.getElementById('media-duration').value;
   if (type === 'text') item.content = document.getElementById('media-text-content').value;
-
-  if (type === 'photo' && !url) { showToast('Selecione uma foto', 'error'); return; }
   if (type === 'video' && !url) { showToast('Informe a URL do vídeo', 'error'); return; }
 
   state.registro.push(item);
