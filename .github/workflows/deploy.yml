@@ -24,28 +24,66 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fix asset paths for GitHub Pages subdirectory
+      - name: Build — patch bundle and inject live content
         run: |
           python3 << 'PYEOF'
-          import hashlib, re
+          import hashlib, re, json
 
-          # Patch JS bundle: /assets/ -> /paporeto/assets/
+          # ── 1. Load content.json ──────────────────────────────────────────
+          with open('content.json', 'r', encoding='utf-8') as f:
+              content = json.load(f)
+
+          # Convert artist/registro data back to compact JS-like JSON for injection
+          artists_json  = json.dumps(content.get('artists',  []), ensure_ascii=False)
+          registro_json = json.dumps(content.get('registro', []), ensure_ascii=False)
+          site_json     = json.dumps(content.get('site',     {}), ensure_ascii=False)
+
+          # ── 2. Patch JS bundle ───────────────────────────────────────────
           with open('assets/index-D0pt1Yki.js', 'r', encoding='utf-8') as f:
               js = f.read()
+
+          # Fix absolute asset paths for subdirectory deployment
           js = js.replace('"/assets/', '"/paporeto/assets/')
+          print(f'  Patched {js.count("/paporeto/assets/")} asset path references')
+
+          # Patch artists array: const Gt=[...] → const Gt=window.__PR_A__||[...]
+          js = re.sub(r'(const Gt=)(\[)', r'\1window.__PR_A__||\2', js, count=1)
+          # Patch registro array: const Fx=[...] → const Fx=window.__PR_R__||[...]
+          js = re.sub(r'(const Fx=)(\[)', r'\1window.__PR_R__||\2', js, count=1)
+
           with open('assets/index-D0pt1Yki.js', 'w', encoding='utf-8') as f:
               f.write(js)
-          print(f'Patched {js.count("/paporeto/assets/")} asset path references')
 
-          # Add hash to script/css refs in index.html to bust browser cache
+          # ── 3. Inject content + cache-bust in index.html ─────────────────
           h = hashlib.md5(js.encode()).hexdigest()[:8]
           with open('index.html', 'r', encoding='utf-8') as f:
               html = f.read()
+
+          # Build inline script that sets live data before the app loads
+          inline = (
+            f'<script>\n'
+            f'window.__PR_A__={artists_json};\n'
+            f'window.__PR_R__={registro_json};\n'
+            f'window.__PR_S__={site_json};\n'
+            f'</script>\n'
+          )
+
+          # Inject before the app script tag
+          html = html.replace(
+              '<script type="module"',
+              inline + '<script type="module"'
+          )
+
+          # Cache-bust JS and CSS references
           html = re.sub(r'(index-D0pt1Yki\.js)(\?[^"]*)?', rf'\1?v={h}', html)
           html = re.sub(r'(index-WF_ZS38y\.css)(\?[^"]*)?', rf'\1?v={h}', html)
+
           with open('index.html', 'w', encoding='utf-8') as f:
               f.write(html)
-          print(f'Cache-busted index.html with hash {h}')
+
+          print(f'  Injected {len(content.get("artists",[]))} artists, '
+                f'{len(content.get("registro",[]))} registro items')
+          print(f'  Cache-busted with hash {h}')
           PYEOF
 
       - name: Setup Pages
